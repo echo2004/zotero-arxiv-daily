@@ -12,7 +12,7 @@ RawPaperItem = TypeVar('RawPaperItem')
 
 
 def _request_llm(openai_client: OpenAI, llm_params: dict, messages: list[dict]) -> str:
-    sleep_sec = 1.8 + random.uniform(0, 0.7)
+    sleep_sec = 1+ random.uniform(0, 0.5)
     time.sleep(sleep_sec)  # ←====新增，每次API请求前休眠1.8秒；限流就调大到2.0~2.5
     api_mode = llm_params.get("api_mode", "chat_completion")
     generation_kwargs = dict(llm_params.get("generation_kwargs", {}))
