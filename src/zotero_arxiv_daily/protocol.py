@@ -7,6 +7,7 @@ from openai import OpenAI
 from loguru import logger
 import json
 import time   # ←====新增这一行
+import random
 RawPaperItem = TypeVar('RawPaperItem')
 
 
