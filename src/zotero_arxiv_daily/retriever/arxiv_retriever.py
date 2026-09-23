@@ -1,5 +1,18 @@
 from .base import BaseRetriever, register_retriever
 import arxiv
+import requests
+
+# Monkey patch 全局修改UA，兼容旧版arxiv库，不需要改Client参数
+_original_get = requests.Session.get
+def patched_get(self, url, **kwargs):
+    if "headers" not in kwargs:
+        kwargs["headers"] = {}
+    # 把这里替换为你的真实邮箱！
+    kwargs["headers"]["User-Agent"] = "zotero-arxiv-daily/1.0 (wawamilu@126.com)"
+    return _original_get(self, url,**kwargs)
+requests.Session.get = patched_get
+
+
 from arxiv import Result as ArxivResult
 from ..protocol import Paper
 from ..utils import extract_markdown_from_pdf, extract_tex_code_from_tar
