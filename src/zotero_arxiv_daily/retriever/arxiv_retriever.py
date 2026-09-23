@@ -114,7 +114,17 @@ class ArxivRetriever(BaseRetriever):
             raise ValueError("category must be specified for arxiv.")
 
     def _retrieve_raw_papers(self) -> list[ArxivResult]:
-        client = arxiv.Client(num_retries=10, delay_seconds=10)
+        import requests
+        # ========== 自定义UA，请修改为你的真实邮箱 ==========
+        session = requests.Session()
+        session.headers.update({
+            "User‑Agent": "zotero‑arxiv‑daily/1.0 (wawamilu@126.com)"
+        })
+        client = arxiv.Client(
+            session=session,
+            num_retries=10,
+            delay_seconds=10
+        )
         query = '+'.join(self.config.source.arxiv.category)
         include_cross_list = self.config.source.arxiv.get("include_cross_list", False)
         # Get the latest paper from arxiv rss feed
@@ -130,13 +140,13 @@ class ArxivRetriever(BaseRetriever):
         ]
         if self.config.executor.debug:
             all_paper_ids = all_paper_ids[:10]
-
         # Get full information of each paper from arxiv api
         bar = tqdm(total=len(all_paper_ids))
         max_batch_retries = 5
         batch_retry_delay = 30
-        for i in range(0, len(all_paper_ids), 20):
-            search = arxiv.Search(id_list=all_paper_ids[i:i + 20])
+        batch_size = 15   # 减小批次，从20→15，规避406
+        for i in range(0, len(all_paper_ids), batch_size):
+            search = arxiv.Search(id_list=all_paper_ids[i:i + batch_size])
             for attempt in range(max_batch_retries):
                 try:
                     batch = list(client.results(search))
@@ -144,17 +154,18 @@ class ArxivRetriever(BaseRetriever):
                     raw_papers.extend(batch)
                     break
                 except arxiv.HTTPError as exc:
-                    if exc.status == 429 and attempt < max_batch_retries - 1:
+                    # 同时捕获429 和 406错误进行重试
+                    if exc.status in (429,406) and attempt < max_batch_retries - 1:
                         wait = batch_retry_delay * (attempt + 1)
-                        logger.warning(f"arXiv API 429 on batch {i // 20}, retry {attempt + 1}/{max_batch_retries} in {wait}s")
+                        logger.warning(f"arXiv API {exc.status} on batch {i//batch_size}, retry {attempt+1}/{max_batch_retries} in {wait}s")
                         sleep(wait)
                     else:
                         raise
-            if i + 20 < len(all_paper_ids):
+            if i + batch_size < len(all_paper_ids):
                 sleep(3)
         bar.close()
-
         return raw_papers
+
 
     def convert_to_paper(self, raw_paper: ArxivResult) -> Paper:
         title = raw_paper.title
