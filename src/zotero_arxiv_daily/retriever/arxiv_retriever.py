@@ -114,14 +114,8 @@ class ArxivRetriever(BaseRetriever):
             raise ValueError("category must be specified for arxiv.")
 
     def _retrieve_raw_papers(self) -> list[ArxivResult]:
-        import requests
-        # ========== 自定义UA，请修改为你的真实邮箱 ==========
-        session = requests.Session()
-        session.headers.update({
-            "User‑Agent": "zotero‑arxiv‑daily/1.0 (wawamilu@126.com)"
-        })
+        # 移除了session相关代码，兼容旧版arxiv库
         client = arxiv.Client(
-            session=session,
             num_retries=10,
             delay_seconds=10
         )
@@ -144,7 +138,7 @@ class ArxivRetriever(BaseRetriever):
         bar = tqdm(total=len(all_paper_ids))
         max_batch_retries = 5
         batch_retry_delay = 30
-        batch_size = 15   # 减小批次，从20→15，规避406
+        batch_size = 15   # 改小批次，从20→15，缩短URL，避免406
         for i in range(0, len(all_paper_ids), batch_size):
             search = arxiv.Search(id_list=all_paper_ids[i:i + batch_size])
             for attempt in range(max_batch_retries):
@@ -154,7 +148,7 @@ class ArxivRetriever(BaseRetriever):
                     raw_papers.extend(batch)
                     break
                 except arxiv.HTTPError as exc:
-                    # 同时捕获429 和 406错误进行重试
+                    # 重点修改：同时捕获429 AND 406，遇到406也重试
                     if exc.status in (429,406) and attempt < max_batch_retries - 1:
                         wait = batch_retry_delay * (attempt + 1)
                         logger.warning(f"arXiv API {exc.status} on batch {i//batch_size}, retry {attempt+1}/{max_batch_retries} in {wait}s")
@@ -165,7 +159,6 @@ class ArxivRetriever(BaseRetriever):
                 sleep(3)
         bar.close()
         return raw_papers
-
 
     def convert_to_paper(self, raw_paper: ArxivResult) -> Paper:
         title = raw_paper.title
