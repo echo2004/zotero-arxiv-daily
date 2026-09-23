@@ -138,7 +138,7 @@ class ArxivRetriever(BaseRetriever):
         bar = tqdm(total=len(all_paper_ids))
         max_batch_retries = 5
         batch_retry_delay = 30
-        batch_size = 15   # 改小批次，从20→15，缩短URL，避免406
+        batch_size = 5   # 改小批次，从20→15，缩短URL，避免406
         for i in range(0, len(all_paper_ids), batch_size):
             search = arxiv.Search(id_list=all_paper_ids[i:i + batch_size])
             for attempt in range(max_batch_retries):
